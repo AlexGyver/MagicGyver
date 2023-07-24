@@ -25,10 +25,7 @@ void build() {
 
             hub.WidgetSize(50);
             hub.Slider(&st_speed, GH_UINT16, F("JOY SPEED"), 0, 4000, 10);
-            if (hub.Slider(&data.max_spd, GH_UINT16, F("MAX SPEED"), 0, 4000, 10)) {
-                memory.update();
-                planner.setMaxSpeed(data.max_spd);
-            }
+            hub.Slider(&st_steps, GH_UINT8, F("STEPS"), 0, 100);
 
             GHpos pos;
             hub.Joystick(&pos, true, true);
@@ -37,35 +34,13 @@ void build() {
                 my.start(-pos.y * st_speed / 255);
             }
 
-            GHpos cpos;
-            GHcanvas cv;
-            if (hub.BeginCanvas(data.width / data.spp, data.height / data.spp, &cv, &cpos, F("SCREEN"))) {
-                int16_t tar[2] = {(int16_t)(cpos.x * data.spp), (int16_t)(cpos.y * data.spp)};
-                planner.setTarget(tar);
-            }
-            cv.noFill();
-            cv.stroke(0);
-            cv.rect(0, 0, -1, -1);
-            hub.EndCanvas();
-
-            hub.WidgetSize(100);
-            hub.Slider(&st_steps, GH_UINT8, F("STEPS"), 0, 100);
-            hub.WidgetSize(25);
-            if (hub.ButtonIcon(0, F(""))) {
-                int32_t pos[2] = {-st_steps, 0};
-                planner.setTarget(pos, RELATIVE);
-            }
-            if (hub.ButtonIcon(0, F(""))) {
-                int32_t pos[2] = {st_steps, 0};
-                planner.setTarget(pos, RELATIVE);
-            }
-            if (hub.ButtonIcon(0, F(""))) {
-                int32_t pos[2] = {0, -st_steps};
-                planner.setTarget(pos, RELATIVE);
-            }
-            if (hub.ButtonIcon(0, F(""))) {
-                int32_t pos[2] = {0, st_steps};
-                planner.setTarget(pos, RELATIVE);
+            GHpos pos2;
+            hub.Dpad(&pos2, F("MOVE"));
+            if (pos2.changed()) {
+                if (pos2.x || pos2.y) { // != 0
+                    int32_t pos[2] = {st_steps * pos2.x, st_steps * pos2.y};
+                    planner.setTarget(pos, RELATIVE);
+                }
             }
 
             hub.WidgetSize(50);
@@ -206,13 +181,16 @@ void hub_tick() {
         buf[ret1] = 0;
         pos[1] = atol(buf) * data.spp;
 
-        
         if (!ret0 || !ret1) {
             trace_f = 0;
             trace_file.close();
             hub.sendUpdate(F("stat"), F("Error"));
         } else {
             planner.setTarget(pos);
+        }
+        if (node_cur == 2) {
+            planner.pause();
+            hub.sendUpdate(F("stat"), F("Pause"));
         }
     }
 
